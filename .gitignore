@@ -1,0 +1,14 @@
+# Binary
+gssh
+
+# Logs and reports
+*.log
+*.html
+
+# Test files
+list_servers.txt
+commands.txt
+test*.txt
+
+# OS
+.DS_Store
