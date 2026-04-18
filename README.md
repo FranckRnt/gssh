@@ -24,7 +24,7 @@ Run SSH commands in parallel across multiple servers. Fast and lightweight, writ
 - 🛡️ SSH agent support and passphrase-protected keys
 - 🌐 Upfront DNS resolution (cache)
 - 💾 Memory protection (captured output limited to 1 MB per stream)
-- ⚙️ Configuration file `~/.gssh.yaml`
+- ⚙️ Configuration file `~/.gssh/config.yaml`
 - 🐚 Shell completion (bash, zsh, fish)
 - ✅ Host key verification via `known_hosts`
 
@@ -421,10 +421,10 @@ The JSON log file is always written. With `-o json`, the summary is also in JSON
 
 ## Configuration file
 
-Create `~/.gssh.yaml` to set default values. Command-line flags always take priority.
+Create `~/.gssh/config.yaml` to set default values. Command-line flags always take priority.
 
 ```yaml
-# ~/.gssh.yaml
+# ~/.gssh/config.yaml
 user: deploy
 key: ~/.ssh/deploy_key
 port: "22"

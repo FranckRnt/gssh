@@ -7,6 +7,14 @@ import (
 	"testing"
 )
 
+func TestMain(m *testing.M) {
+	// Use a temp HOME so tests don't load the real ~/.gssh/config.yaml.
+	tmp, _ := os.MkdirTemp("", "gssh-test-home")
+	defer os.RemoveAll(tmp)
+	os.Setenv("HOME", tmp)
+	os.Exit(m.Run())
+}
+
 func TestParseFlags_MissingRequired(t *testing.T) {
 	tests := []struct {
 		name string

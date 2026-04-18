@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -343,7 +344,7 @@ func loadCommandsFromFile(path string) ([]string, error) {
 	return cmds, nil
 }
 
-// applyConfigFileDefaults loads ~/.gssh.yaml and applies defaults where
+// applyConfigFileDefaults loads ~/.gssh/config.yaml and applies defaults where
 // CLI flags were not explicitly set.
 func applyConfigFileDefaults(fs *flag.FlagSet, cfg *config) {
 	path := cfgfile.DefaultConfigPath()
@@ -367,7 +368,7 @@ func applyConfigFileDefaults(fs *flag.FlagSet, cfg *config) {
 		cfg.user = fileCfg.User
 	}
 	if !set["k"] && fileCfg.KeyPath != "" {
-		cfg.keyPath = fileCfg.KeyPath
+		cfg.keyPath = expandTilde(fileCfg.KeyPath)
 	}
 	if !set["p"] && fileCfg.Port != "" {
 		cfg.port = fileCfg.Port
@@ -384,7 +385,7 @@ func applyConfigFileDefaults(fs *flag.FlagSet, cfg *config) {
 		cfg.retries = fileCfg.Retries
 	}
 	if !set["known-hosts"] && fileCfg.KnownHosts != "" {
-		cfg.knownHostsFile = fileCfg.KnownHosts
+		cfg.knownHostsFile = expandTilde(fileCfg.KnownHosts)
 	}
 	if !set["v"] && fileCfg.Verbose {
 		cfg.verbose = true
@@ -393,10 +394,20 @@ func applyConfigFileDefaults(fs *flag.FlagSet, cfg *config) {
 		cfg.outputFormat = fileCfg.Output
 	}
 	if !set["L"] && fileCfg.LogDir != "" {
-		cfg.logDir = fileCfg.LogDir
+		cfg.logDir = expandTilde(fileCfg.LogDir)
 	}
+}
 
-	slog.Debug("loaded config file", "path", path)
+// expandTilde replaces ~ with the user's home directory.
+func expandTilde(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, strings.TrimPrefix(path, "~"))
+	}
+	return path
 }
 
 // applyTransferConfigFileDefaults loads config file defaults for transfer commands.
@@ -421,7 +432,7 @@ func applyTransferConfigFileDefaults(fs *flag.FlagSet, cfg *transferConfig) {
 		cfg.user = fileCfg.User
 	}
 	if !set["k"] && fileCfg.KeyPath != "" {
-		cfg.keyPath = fileCfg.KeyPath
+		cfg.keyPath = expandTilde(fileCfg.KeyPath)
 	}
 	if !set["p"] && fileCfg.Port != "" {
 		cfg.port = fileCfg.Port
@@ -430,7 +441,7 @@ func applyTransferConfigFileDefaults(fs *flag.FlagSet, cfg *transferConfig) {
 		cfg.maxWorkers = fileCfg.MaxWorkers
 	}
 	if !set["known-hosts"] && fileCfg.KnownHosts != "" {
-		cfg.knownHostsFile = fileCfg.KnownHosts
+		cfg.knownHostsFile = expandTilde(fileCfg.KnownHosts)
 	}
 	if !set["v"] && fileCfg.Verbose {
 		cfg.verbose = true
@@ -439,10 +450,8 @@ func applyTransferConfigFileDefaults(fs *flag.FlagSet, cfg *transferConfig) {
 		cfg.outputFormat = fileCfg.Output
 	}
 	if !set["L"] && fileCfg.LogDir != "" {
-		cfg.logDir = fileCfg.LogDir
+		cfg.logDir = expandTilde(fileCfg.LogDir)
 	}
-
-	slog.Debug("loaded config file", "path", path)
 }
 
 func run(args []string, stderr io.Writer) int {

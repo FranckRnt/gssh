@@ -9,13 +9,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DefaultConfigPath returns ~/.gssh.yaml if it exists, empty string otherwise.
+// DefaultConfigPath returns ~/.gssh/config.yaml if it exists, empty string otherwise.
 func DefaultConfigPath() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	path := filepath.Join(home, ".gssh.yaml")
+	path := filepath.Join(home, ".gssh", "config.yaml")
 	if _, err := os.Stat(path); err != nil {
 		return ""
 	}
