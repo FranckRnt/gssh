@@ -1,46 +1,46 @@
 # gssh — SSH at scale
 
-Exécution de commandes SSH en parallèle sur plusieurs serveurs. Outil rapide et léger, écrit en Go.
+Run SSH commands in parallel across multiple servers. Fast and lightweight, written in Go.
 
-## Fonctionnalités
+## Features
 
-- Exécution parallèle avec worker pool configurable
-- Multi-commandes sur une seule connexion SSH par serveur (`-c cmd1 -c cmd2`)
-- Chargement de commandes depuis un fichier script (`-f`)
-- **Transfert de fichiers** : upload (`push`) et download (`pull`) via SFTP
-- **Bastion/jump host** : flag `-J user@host[:port]` pour tunneler via un proxy SSH
-- **Tags et filtrage** : tag des serveurs avec `#tag` et filtrage avec `-g`
-- **Inventaire dynamique** : source de serveurs depuis un fichier, un script exécutable ou une URL
-- **Sudo** : flag `-S` pour exécuter les commandes via `sudo` (mot de passe demandé une seule fois)
-- **Templates de commandes** : variables `{{.Hostname}}`, `{{.Port}}`, `{{.Tags}}`, etc. dans les commandes
-- **Streaming en temps réel** : flag `-s` pour afficher la sortie ligne par ligne au fur et à mesure (style `tail -f`)
-- **Diff mode** : flag `--diff` pour comparer les sorties entre serveurs et détecter les drifts
-- **Sortie groupée** : flag `--group` pour regrouper les serveurs par sortie identique
-- **Rapport HTML** : flag `--report html` pour générer un rapport HTML statique avec tableau triable, dark/light mode
-- Retry automatique des serveurs en échec
-- Progress bar en temps réel
-- Sortie texte colorée ou JSON
-- Détection automatique des clés SSH (ed25519, ecdsa, rsa)
-- Support de l'agent SSH et des clés avec passphrase
-- Résolution DNS en amont (cache)
-- Protection mémoire (sortie capturée limitée à 1 Mo par flux)
-- Fichier de configuration `~/.gssh.yaml`
-- Complétion shell (bash, zsh, fish)
-- Vérification des host keys via `known_hosts`
+- Parallel execution with configurable worker pool
+- Multiple commands over a single SSH connection per server (`-c cmd1 -c cmd2`)
+- Load commands from a script file (`-f`)
+- **File transfer**: upload (`push`) and download (`pull`) via SFTP
+- **Bastion/jump host**: `-J user@host[:port]` flag to tunnel through an SSH proxy
+- **Tags and filtering**: tag servers with `#tag` and filter with `-g`
+- **Dynamic inventory**: server source from a file, an executable script, or a URL
+- **Sudo**: `-S` flag to run commands via `sudo` (password prompted once)
+- **Command templates**: `{{.Hostname}}`, `{{.Port}}`, `{{.Tags}}`, etc. variables in commands
+- **Real-time streaming**: `-s` flag to display output line by line as it arrives (`tail -f` style)
+- **Diff mode**: `--diff` flag to compare outputs across servers and detect drift
+- **Grouped output**: `--group` flag to group servers by identical output
+- **HTML report**: `--report html` flag to generate a static HTML report with sortable table, dark/light mode
+- Automatic retry of failed servers
+- Real-time progress bar
+- Colored text or JSON output
+- Automatic SSH key detection (ed25519, ecdsa, rsa)
+- SSH agent support and passphrase-protected keys
+- Upfront DNS resolution (cache)
+- Memory protection (captured output limited to 1 MB per stream)
+- Configuration file `~/.gssh.yaml`
+- Shell completion (bash, zsh, fish)
+- Host key verification via `known_hosts`
 
 ## Installation
 
-### Depuis les releases GitHub
+### From GitHub releases
 
-Télécharger le binaire correspondant à votre OS depuis la page [Releases](https://github.com/FranckRnt/gssh/releases).
+Download the binary for your OS from the [Releases](https://github.com/FranckRnt/gssh/releases) page.
 
-### Depuis les sources
+### From source
 
 ```bash
 go install github.com/FranckRnt/gssh/cmd/gssh@latest
 ```
 
-Ou cloner et compiler :
+Or clone and build:
 
 ```bash
 git clone git@github.com:FranckRnt/gssh.git
@@ -48,119 +48,119 @@ cd gssh
 go build -o gssh ./cmd/gssh/
 ```
 
-## Commandes
+## Commands
 
-gssh utilise des sous-commandes :
+gssh uses subcommands:
 
-| Commande | Description |
-|----------|-------------|
-| `gssh run` | Exécuter des commandes SSH (par défaut, `run` est optionnel) |
-| `gssh push` | Uploader un fichier vers N serveurs via SFTP |
-| `gssh pull` | Télécharger un fichier depuis N serveurs via SFTP |
+| Command | Description |
+|---------|-------------|
+| `gssh run` | Execute SSH commands (default, `run` is optional) |
+| `gssh push` | Upload a file to N servers via SFTP |
+| `gssh pull` | Download a file from N servers via SFTP |
 
-## Utilisation rapide
+## Quick start
 
-### Exécution de commandes
+### Running commands
 
 ```bash
-# Lancer une commande sur tous les serveurs
+# Run a command on all servers
 gssh -l servers.txt -u root -c "uptime"
 
-# Équivalent avec sous-commande explicite
+# Equivalent with explicit subcommand
 gssh run -l servers.txt -u root -c "uptime"
 
-# Plusieurs commandes (réutilise la connexion SSH)
+# Multiple commands (reuses the SSH connection)
 gssh -l servers.txt -u deploy -c "uptime" -c "df -h" -c "free -m"
 
-# Charger les commandes depuis un fichier
+# Load commands from a file
 gssh -l servers.txt -u root -f commands.txt
 
-# Mode dry-run : voir les serveurs ciblés sans rien exécuter
+# Dry-run mode: see targeted servers without executing anything
 gssh -l servers.txt -u root -c "uptime" -n
 ```
 
 ### Bastion / jump host
 
 ```bash
-# Exécuter via un bastion
+# Execute through a bastion
 gssh -l servers.txt -u root -c "uptime" -J admin@bastion.example.com
 
-# Bastion avec port personnalisé
+# Bastion with custom port
 gssh -l servers.txt -u root -c "uptime" -J admin@bastion.example.com:2222
 
-# Upload via bastion
+# Upload through bastion
 gssh push -l servers.txt -u root -s ./config.yml -d /etc/app/config.yml \
      -J admin@bastion.example.com
 
-# Download via bastion
+# Download through bastion
 gssh pull -l servers.txt -u root -s /var/log/app.log -d ./logs/ \
      -J admin@bastion.example.com
 ```
 
-Le bastion utilise les mêmes méthodes d'authentification (agent SSH, clé privée) et la même vérification des host keys que les serveurs cibles.
+The bastion uses the same authentication methods (SSH agent, private key) and the same host key verification as target servers.
 
 ### Sudo
 
 ```bash
-# Exécuter une commande avec sudo (le mot de passe est demandé une seule fois)
+# Run a command with sudo (password prompted once)
 gssh -l servers.txt -u deploy -c "apt update" -S
 
-# Sudo + multi-commandes
+# Sudo + multiple commands
 gssh -l servers.txt -u deploy -c "apt update" -c "apt upgrade -y" -S
 
 # Sudo + bastion
 gssh -l servers.txt -u deploy -c "systemctl restart nginx" -S -J admin@bastion
 ```
 
-Le mot de passe est saisi de manière sécurisée (sans écho) et envoyé à chaque commande via `sudo -S`.
+The password is entered securely (no echo) and sent to each command via `sudo -S`.
 
-### Templates de commandes
+### Command templates
 
-Les commandes peuvent contenir des variables Go templates qui sont résolues par serveur :
+Commands can contain Go template variables that are resolved per server:
 
-| Variable | Description | Exemple |
+| Variable | Description | Example |
 |----------|-------------|---------|
-| `{{.Hostname}}` | Nom d'hôte (sans port) | `web01.example.com` |
-| `{{.Host}}` | Entrée complète (avec port si présent) | `web01.example.com:2222` |
-| `{{.IP}}` | Alias de Hostname | `web01.example.com` |
-| `{{.Port}}` | Port SSH | `2222` |
-| `{{.Tags}}` | Tableau de tags | `[web prod]` |
-| `{{.TagsCSV}}` | Tags séparés par des virgules | `web,prod` |
+| `{{.Hostname}}` | Hostname (without port) | `web01.example.com` |
+| `{{.Host}}` | Full entry (with port if present) | `web01.example.com:2222` |
+| `{{.IP}}` | Alias for Hostname | `web01.example.com` |
+| `{{.Port}}` | SSH port | `2222` |
+| `{{.Tags}}` | Tag array | `[web prod]` |
+| `{{.TagsCSV}}` | Comma-separated tags | `web,prod` |
 
 ```bash
-# Créer un fichier avec le nom du serveur
+# Create a file with the server name
 gssh -l servers.txt -u root -c "echo {{.Hostname}} > /etc/hostname"
 
-# Configurer selon les tags
+# Configure based on tags
 gssh -l servers.txt -u root -c "echo 'role={{.TagsCSV}}' >> /etc/environment"
 
-# Utiliser le port dans une commande
+# Use port in a command
 gssh -l servers.txt -u root -c "echo 'SSH port: {{.Port}}'"
 ```
 
-Les templates ne sont évalués que si au moins une commande contient `{{`. Si aucune commande ne contient de template, il n'y a aucun overhead.
+Templates are only evaluated if at least one command contains `{{`. If no command uses templates, there is zero overhead.
 
-### Transfert de fichiers
+### File transfer
 
 ```bash
-# Upload un fichier vers tous les serveurs
+# Upload a file to all servers
 gssh push -l servers.txt -u root -s ./nginx.conf -d /etc/nginx/nginx.conf
 
-# Upload avec port et clé personnalisés
+# Upload with custom port and key
 gssh push -l servers.txt -u deploy -s ./app.tar.gz -d /opt/app.tar.gz \
      -p 2222 -k ~/.ssh/deploy_key
 
-# Download un fichier depuis tous les serveurs
-# Les fichiers sont sauvegardés dans ./logs/<hostname>/syslog
+# Download a file from all servers
+# Files are saved to ./logs/<hostname>/syslog
 gssh pull -l servers.txt -u root -s /var/log/syslog -d ./logs/
 
-# Download des configs nginx
+# Download nginx configs
 gssh pull -l servers.txt -u deploy -s /etc/nginx/nginx.conf -d ./configs/
 ```
 
-## Fichier de serveurs
+## Server file
 
-Un fichier texte avec un serveur par ligne. Les lignes vides et les commentaires (`#` en début de ligne) sont ignorés. Le port peut être précisé avec `:port`. Les tags sont optionnels, préfixés par `#` après le nom d'hôte.
+A text file with one server per line. Empty lines and comments (`#` at the beginning of a line) are ignored. The port can be specified with `:port`. Tags are optional, prefixed with `#` after the hostname.
 
 ```
 # servers.txt
@@ -171,41 +171,41 @@ db01.example.com #db #prod #paris
 plain-host
 ```
 
-> Le fichier ne doit pas être world-writable (permissions `0644` ou plus restrictif).
+> The file must not be world-writable (permissions `0644` or more restrictive).
 
-### Filtrage par tags
+### Tag filtering
 
 ```bash
-# Cibler uniquement les serveurs web
+# Target only web servers
 gssh -l servers.txt -u root -c "uptime" -g web
 
-# Cibler les serveurs web ET prod (intersection)
+# Target web AND prod servers (intersection)
 gssh -l servers.txt -u root -c "uptime" -g web,prod
 
-# Fonctionne aussi avec push/pull
+# Also works with push/pull
 gssh push -l servers.txt -u root -s ./nginx.conf -d /etc/nginx/nginx.conf -g web
 ```
 
-Le flag `-g` prend une liste de tags séparés par des virgules. Les serveurs doivent avoir **tous** les tags spécifiés pour être sélectionnés.
+The `-g` flag takes a comma-separated list of tags. Servers must have **all** specified tags to be selected.
 
-### Inventaire dynamique
+### Dynamic inventory
 
-Au lieu d'un fichier statique, la source de serveurs (`-l`) peut être :
+Instead of a static file, the server source (`-l`) can be:
 
-**Un script exécutable** — gssh détecte les fichiers avec le bit exécutable et exécute le script. La sortie stdout est parsée au même format (un serveur par ligne, avec tags optionnels).
+**An executable script** — gssh detects files with the executable bit and runs the script. The stdout output is parsed in the same format (one server per line, with optional tags).
 
 ```bash
-# inventory.sh doit être exécutable (chmod +x)
+# inventory.sh must be executable (chmod +x)
 gssh -l ./inventory.sh -u root -c "uptime"
 
-# Exemple de script
+# Example script
 #!/bin/bash
 echo "web01.example.com #web #prod"
 echo "web02.example.com #web #staging"
-# Peut interroger une API, une base de données, AWS, etc.
+# Can query an API, database, AWS, etc.
 ```
 
-**Une URL HTTP/HTTPS** — gssh fetch l'URL et parse le body au même format.
+**An HTTP/HTTPS URL** — gssh fetches the URL and parses the body in the same format.
 
 ```bash
 gssh -l https://inventory.example.com/servers -u root -c "uptime"
@@ -214,76 +214,76 @@ gssh -l https://inventory.example.com/servers -u root -c "uptime" -g prod
 
 ## Options
 
-### Commande `run` (ou sans sous-commande)
+### `run` command (or without subcommand)
 
-| Flag | Description | Défaut |
-|------|-------------|--------|
-| `-l <fichier>` | Fichier de liste de serveurs **(requis)** | — |
-| `-u <user>` | Utilisateur SSH **(requis)** | — |
-| `-c <commande>` | Commande à exécuter (répétable) **(requis, exclusif avec `-f`)** | — |
-| `-f <fichier>` | Fichier de commandes, une par ligne **(requis, exclusif avec `-c`)** | — |
-| `-k <chemin>` | Clé privée SSH | auto-détection |
-| `-p <port>` | Port SSH par défaut | `22` |
-| `-t <durée>` | Timeout par serveur | `30s` |
-| `-w <nombre>` | Workers SSH simultanés max | `100` |
-| `-r <nombre>` | Nombre de tentatives en cas d'échec | `0` |
-| `-v` | Sortie en temps réel (verbose) | `false` |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-l <file>` | Server list file **(required)** | — |
+| `-u <user>` | SSH user **(required)** | — |
+| `-c <command>` | Command to execute (repeatable) **(required, exclusive with `-f`)** | — |
+| `-f <file>` | Command file, one per line **(required, exclusive with `-c`)** | — |
+| `-k <path>` | SSH private key | auto-detection |
+| `-p <port>` | Default SSH port | `22` |
+| `-t <duration>` | Timeout per server | `30s` |
+| `-w <count>` | Max concurrent SSH workers | `100` |
+| `-r <count>` | Retry attempts on failure | `0` |
+| `-v` | Real-time output (verbose) | `false` |
 | `-n` | Dry run | `false` |
-| `-o <format>` | Format de sortie : `text` ou `json` | `text` |
-| `-known-hosts <chemin>` | Fichier known_hosts | `~/.ssh/known_hosts` |
-| `-insecure` | Désactiver la vérification des host keys | `false` |
-| `-y` | Confirmer les opérations dangereuses (requis avec `-insecure`) | `false` |
-| `-J <user@host[:port]>` | Bastion/jump host pour tunneler les connexions | — |
-| `-g <tags>` | Filtrer par tags (séparés par des virgules, intersection) | — |
-| `-S` | Exécuter les commandes via sudo (demande le mot de passe une fois) | `false` |
-| `-L <chemin>` | Répertoire pour les fichiers de log JSON | `~/.gssh/logs/` |
-| `-s` | Streaming en temps réel, ligne par ligne (implique `-v`) | `false` |
-| `--diff` | Comparer les sorties entre serveurs après exécution | `false` |
-| `--group` | Grouper les serveurs par sortie identique | `false` |
-| `--report <format>` | Générer un rapport : `html` | — |
+| `-o <format>` | Output format: `text` or `json` | `text` |
+| `-known-hosts <path>` | known_hosts file | `~/.ssh/known_hosts` |
+| `-insecure` | Disable host key verification | `false` |
+| `-y` | Confirm dangerous operations (required with `-insecure`) | `false` |
+| `-J <user@host[:port]>` | Bastion/jump host to tunnel connections | — |
+| `-g <tags>` | Filter by tags (comma-separated, intersection) | — |
+| `-S` | Run commands via sudo (prompts password once) | `false` |
+| `-L <path>` | Directory for JSON log files | `~/.gssh/logs/` |
+| `-s` | Real-time streaming, line by line (implies `-v`) | `false` |
+| `--diff` | Compare outputs across servers after execution | `false` |
+| `--group` | Group servers by identical output | `false` |
+| `--report <format>` | Generate a report: `html` | — |
 
-> **Note** : `-c` et `-f` sont mutuellement exclusifs. Utilisez l'un ou l'autre, pas les deux.
+> **Note**: `-c` and `-f` are mutually exclusive. Use one or the other, not both.
 
-### Commandes `push` et `pull`
+### `push` and `pull` commands
 
-| Flag | Description | Défaut |
-|------|-------------|--------|
-| `-l <fichier>` | Fichier de liste de serveurs **(requis)** | — |
-| `-u <user>` | Utilisateur SSH **(requis)** | — |
-| `-s <chemin>` | Chemin source **(requis)** | — |
-| `-d <chemin>` | Chemin destination **(requis)** | — |
-| `-k <chemin>` | Clé privée SSH | auto-détection |
-| `-p <port>` | Port SSH par défaut | `22` |
-| `-w <nombre>` | Workers SSH simultanés max | `100` |
-| `-v` | Sortie verbose | `false` |
+| Flag | Description | Default |
+|------|-------------|---------|
+| `-l <file>` | Server list file **(required)** | — |
+| `-u <user>` | SSH user **(required)** | — |
+| `-s <path>` | Source path **(required)** | — |
+| `-d <path>` | Destination path **(required)** | — |
+| `-k <path>` | SSH private key | auto-detection |
+| `-p <port>` | Default SSH port | `22` |
+| `-w <count>` | Max concurrent SSH workers | `100` |
+| `-v` | Verbose output | `false` |
 | `-n` | Dry run | `false` |
-| `-o <format>` | Format de sortie : `text` ou `json` | `text` |
-| `-known-hosts <chemin>` | Fichier known_hosts | `~/.ssh/known_hosts` |
-| `-insecure` | Désactiver la vérification des host keys | `false` |
-| `-y` | Confirmer les opérations dangereuses | `false` |
-| `-J <user@host[:port]>` | Bastion/jump host pour tunneler les connexions | — |
-| `-g <tags>` | Filtrer par tags (séparés par des virgules, intersection) | — |
-| `-L <chemin>` | Répertoire pour les fichiers de log JSON | `~/.gssh/logs/` |
+| `-o <format>` | Output format: `text` or `json` | `text` |
+| `-known-hosts <path>` | known_hosts file | `~/.ssh/known_hosts` |
+| `-insecure` | Disable host key verification | `false` |
+| `-y` | Confirm dangerous operations | `false` |
+| `-J <user@host[:port]>` | Bastion/jump host to tunnel connections | — |
+| `-g <tags>` | Filter by tags (comma-separated, intersection) | — |
+| `-L <path>` | Directory for JSON log files | `~/.gssh/logs/` |
 
-Pour `push`, `-s` est le chemin local et `-d` le chemin distant. Si `-d` est un répertoire existant sur le serveur (ou finit par `/`), le nom du fichier source est ajouté automatiquement (ex : `-s ./nginx.conf -d /etc/nginx/` → `/etc/nginx/nginx.conf`).
-Pour `pull`, `-s` est le chemin distant et `-d` le répertoire local de sortie (les fichiers sont sauvegardés dans `<dest>/<hostname>/<filename>`).
+For `push`, `-s` is the local path and `-d` is the remote path. If `-d` is an existing directory on the server (or ends with `/`), the source filename is appended automatically (e.g., `-s ./nginx.conf -d /etc/nginx/` → `/etc/nginx/nginx.conf`).
+For `pull`, `-s` is the remote path and `-d` is the local output directory (files are saved to `<dest>/<hostname>/<filename>`).
 
-## Exemples
+## Examples
 
-### Sortie verbose avec retries et format JSON
+### Verbose output with retries and JSON format
 
 ```bash
 gssh -l servers.txt -u root -c "systemctl status nginx" -v -r 3 -o json
 ```
 
-### Clé SSH spécifique, port et timeout personnalisés
+### Custom SSH key, port, and timeout
 
 ```bash
 gssh -l servers.txt -u deploy -c "systemctl restart app" \
      -k ~/.ssh/deploy_key -p 2222 -t 60s -w 50
 ```
 
-### Fichier de commandes
+### Command file
 
 ```bash
 # commands.txt
@@ -297,26 +297,26 @@ systemctl status nginx
 gssh -l servers.txt -u root -f commands.txt
 ```
 
-Les commandes sont exécutées dans l'ordre sur chaque serveur. Si une commande échoue, les suivantes sont ignorées pour ce serveur.
+Commands are executed in order on each server. If a command fails, subsequent commands are skipped for that server.
 
-### Upload d'un fichier de configuration
+### Upload a configuration file
 
 ```bash
 gssh push -l servers.txt -u root -s ./nginx.conf -d /etc/nginx/nginx.conf
 ```
 
-### Collecte de logs depuis tous les serveurs
+### Collect logs from all servers
 
 ```bash
 gssh pull -l servers.txt -u root -s /var/log/syslog -d ./collected-logs/
-# Résultat : ./collected-logs/web01/syslog, ./collected-logs/web02/syslog, etc.
+# Result: ./collected-logs/web01/syslog, ./collected-logs/web02/syslog, etc.
 ```
 
-## Modes de sortie
+## Output modes
 
-### Mode normal (par défaut)
+### Normal mode (default)
 
-Une ligne compacte par serveur avec le statut de chaque commande. Le détail (error, stderr) n'est affiché que pour les commandes en échec.
+One compact line per server with the status of each command. Details (error, stderr) are only shown for failed commands.
 
 ```
 192.168.1.12  hostname OK | uptime OK | yum check-update FAIL (exit=100)
@@ -330,7 +330,7 @@ Une ligne compacte par serveur avec le statut de chaque commande. Le détail (er
   Duration: 1.5s
 ```
 
-Pour les transferts :
+For transfers:
 
 ```
 web01  push OK  4.2 KiB  230ms
@@ -345,17 +345,17 @@ web03  push FAIL  connection refused  50ms
   Duration:   280ms
 ```
 
-### Mode verbose (`-v`)
+### Verbose mode (`-v`)
 
-Sortie complète de chaque commande en temps réel, avec stdout et stderr affichés intégralement.
+Full output of each command in real time, with stdout and stderr displayed in full.
 
 ```bash
 gssh -l servers.txt -u root -c "uptime" -c "df -h" -v
 ```
 
-### Mode streaming (`-s`)
+### Streaming mode (`-s`)
 
-Affiche la sortie ligne par ligne au fur et à mesure de l'exécution, comme `tail -f`. Chaque ligne est préfixée par le hostname. Utile pour les commandes longues (`apt upgrade`, `docker pull`).
+Displays output line by line as execution progresses, like `tail -f`. Each line is prefixed with the hostname. Useful for long-running commands (`apt upgrade`, `docker pull`).
 
 ```bash
 gssh -l servers.txt -u root -c "apt update && apt upgrade -y" -s
@@ -368,11 +368,11 @@ web01 Reading package lists...
 web02 err| W: Some warning here
 ```
 
-Les lignes stderr sont marquées avec le préfixe `err|` en jaune.
+Stderr lines are marked with the `err|` prefix in yellow.
 
-### Mode diff (`--diff`)
+### Diff mode (`--diff`)
 
-Compare les sorties de chaque commande entre tous les serveurs. Utile pour détecter des drifts de configuration.
+Compares the output of each command across all servers. Useful for detecting configuration drift.
 
 ```bash
 gssh -l servers.txt -u root -c "cat /etc/hostname" --diff
@@ -389,9 +389,9 @@ gssh -l servers.txt -u root -c "cat /etc/hostname" --diff
     dbhost
 ```
 
-### Mode groupé (`--group`)
+### Grouped mode (`--group`)
 
-Regroupe les serveurs par sortie identique au lieu de l'affichage par serveur. Montre directement combien de serveurs ont produit le même résultat.
+Groups servers by identical output instead of per-server display. Shows directly how many servers produced the same result.
 
 ```bash
 gssh -l servers.txt -u root -c "systemctl is-active nginx" --group
@@ -405,23 +405,23 @@ gssh -l servers.txt -u root -c "systemctl is-active nginx" --group
   inactive
 ```
 
-### Rapport HTML (`--report html`)
+### HTML report (`--report html`)
 
-Génère un fichier HTML statique autonome avec un tableau triable, des couleurs, et un résumé visuel. Aucune dépendance externe. Le rapport inclut un toggle **dark/light mode** (détection automatique de la préférence système, persistance via `localStorage`).
+Generates a self-contained static HTML report with a sortable table, colors, and a visual summary. No external dependencies. The report includes a **dark/light mode** toggle (automatic system preference detection, persisted via `localStorage`).
 
 ```bash
 gssh -l servers.txt -u root -c "uptime" -c "df -h" --report html
 ```
 
-Le rapport est écrit dans le répertoire de logs (`~/.gssh/logs/` par défaut ou `-L`).
+The report is written to the log directory (`~/.gssh/logs/` by default, or `-L`).
 
-### Format JSON (`-o json`)
+### JSON format (`-o json`)
 
-Le fichier de log JSON est toujours écrit. Avec `-o json`, le summary est aussi en JSON.
+The JSON log file is always written. With `-o json`, the summary is also in JSON.
 
-## Fichier de configuration
+## Configuration file
 
-Créer `~/.gssh.yaml` pour définir des valeurs par défaut. Les flags en ligne de commande ont toujours la priorité.
+Create `~/.gssh.yaml` to set default values. Command-line flags always take priority.
 
 ```yaml
 # ~/.gssh.yaml
@@ -437,40 +437,40 @@ output: text
 log_dir: ~/.gssh/logs/
 ```
 
-## Complétion shell
+## Shell completion
 
 ```bash
-# Bash (ajouter dans ~/.bashrc)
+# Bash (add to ~/.bashrc)
 eval "$(gssh --completion=bash)"
 
-# Zsh (ajouter dans ~/.zshrc)
+# Zsh (add to ~/.zshrc)
 eval "$(gssh --completion=zsh)"
 
 # Fish
 gssh --completion=fish | source
 ```
 
-## Authentification SSH
+## SSH authentication
 
-gssh tente l'authentification dans cet ordre :
+gssh attempts authentication in this order:
 
-1. **Agent SSH** (`SSH_AUTH_SOCK`) — si l'agent est actif et contient des clés
-2. **Clé privée fichier** — spécifiée avec `-k` ou auto-détectée dans `~/.ssh/` (ed25519, ecdsa, rsa)
+1. **SSH agent** (`SSH_AUTH_SOCK`) — if the agent is active and contains keys
+2. **Private key file** — specified with `-k` or auto-detected in `~/.ssh/` (ed25519, ecdsa, rsa)
 
-Si la clé est protégée par une passphrase, gssh la demande interactivement.
+If the key is protected by a passphrase, gssh prompts for it interactively.
 
-## Fichier de log
+## Log file
 
-Après chaque exécution, gssh écrit un fichier JSON `gssh-YYYY-MM-DD_HH-MM-SS.log` dans le répertoire de logs. Par défaut, ce répertoire est `~/.gssh/logs/`. Il peut être modifié via le flag `-L` ou la clé `log_dir` dans `~/.gssh.yaml`. Le répertoire est créé automatiquement s'il n'existe pas.
+After each execution, gssh writes a JSON file `gssh-YYYY-MM-DD_HH-MM-SS.log` to the log directory. By default, this directory is `~/.gssh/logs/`. It can be changed via the `-L` flag or the `log_dir` key in `~/.gssh.yaml`. The directory is created automatically if it does not exist.
 
-## Codes de sortie
+## Exit codes
 
-| Code | Signification |
-|------|---------------|
-| `0` | Tous les serveurs ont réussi |
-| `1` | Erreur de configuration ou d'initialisation |
-| `2` | Au moins un serveur a échoué |
+| Code | Meaning |
+|------|---------|
+| `0` | All servers succeeded |
+| `1` | Configuration or initialization error |
+| `2` | At least one server failed |
 
-## Licence
+## License
 
 MIT
