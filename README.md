@@ -4,29 +4,29 @@ Run SSH commands in parallel across multiple servers. Fast and lightweight, writ
 
 ## Features
 
-- Parallel execution with configurable worker pool
-- Multiple commands over a single SSH connection per server (`-c cmd1 -c cmd2`)
-- Load commands from a script file (`-f`)
-- **File transfer**: upload (`push`) and download (`pull`) via SFTP
-- **Bastion/jump host**: `-J user@host[:port]` flag to tunnel through an SSH proxy
-- **Tags and filtering**: tag servers with `#tag` and filter with `-g`
-- **Dynamic inventory**: server source from a file, an executable script, or a URL
-- **Sudo**: `-S` flag to run commands via `sudo` (password prompted once)
-- **Command templates**: `{{.Hostname}}`, `{{.Port}}`, `{{.Tags}}`, etc. variables in commands
-- **Real-time streaming**: `-s` flag to display output line by line as it arrives (`tail -f` style)
-- **Diff mode**: `--diff` flag to compare outputs across servers and detect drift
-- **Grouped output**: `--group` flag to group servers by identical output
-- **HTML report**: `--report html` flag to generate a static HTML report with sortable table, dark/light mode
-- Automatic retry of failed servers
-- Real-time progress bar
-- Colored text or JSON output
-- Automatic SSH key detection (ed25519, ecdsa, rsa)
-- SSH agent support and passphrase-protected keys
-- Upfront DNS resolution (cache)
-- Memory protection (captured output limited to 1 MB per stream)
-- Configuration file `~/.gssh.yaml`
-- Shell completion (bash, zsh, fish)
-- Host key verification via `known_hosts`
+- ⚡ Parallel execution with configurable worker pool
+- 🔗 Multiple commands over a single SSH connection per server (`-c cmd1 -c cmd2`)
+- 📄 Load commands from a script file (`-f`)
+- 📦 **File transfer**: upload (`push`) and download (`pull`) via SFTP
+- 🏰 **Bastion/jump host**: `-J user@host[:port]` flag to tunnel through an SSH proxy
+- 🏷️ **Tags and filtering**: tag servers with `#tag` and filter with `-g`
+- 🔄 **Dynamic inventory**: server source from a file, an executable script, or a URL
+- 🔐 **Sudo**: `-S` flag to run commands via `sudo` (password prompted once)
+- 🧩 **Command templates**: `{{.Hostname}}`, `{{.Port}}`, `{{.Tags}}`, etc. variables in commands
+- 📡 **Real-time streaming**: `-s` flag to display output line by line as it arrives (`tail -f` style)
+- 🔍 **Diff mode**: `--diff` flag to compare outputs across servers and detect drift
+- 📊 **Grouped output**: `--group` flag to group servers by identical output
+- 📝 **HTML report**: `--report html` flag to generate a static HTML report with sortable table, dark/light mode
+- 🔁 Automatic retry of failed servers
+- 📈 Real-time progress bar
+- 🎨 Colored text or JSON output
+- 🔑 Automatic SSH key detection (ed25519, ecdsa, rsa)
+- 🛡️ SSH agent support and passphrase-protected keys
+- 🌐 Upfront DNS resolution (cache)
+- 💾 Memory protection (captured output limited to 1 MB per stream)
+- ⚙️ Configuration file `~/.gssh.yaml`
+- 🐚 Shell completion (bash, zsh, fish)
+- ✅ Host key verification via `known_hosts`
 
 ## Installation
 
