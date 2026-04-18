@@ -16,16 +16,23 @@ type HTMLData struct {
 	Duration    string
 	Summary     internalssh.Summary
 	Results     []internalssh.Result
+	UniqueHosts int
 }
 
 // WriteHTML generates a self-contained HTML report file.
 // Returns the path to the generated file.
 func WriteHTML(results []internalssh.Result, summary internalssh.Summary, elapsed time.Duration, logDir string) (string, error) {
+	seen := make(map[string]struct{}, len(results))
+	for _, r := range results {
+		seen[r.Hostname] = struct{}{}
+	}
+
 	data := HTMLData{
 		GeneratedAt: time.Now().Format("2006-01-02 15:04:05"),
 		Duration:    elapsed.Round(time.Millisecond).String(),
 		Summary:     summary,
 		Results:     results,
+		UniqueHosts: len(seen),
 	}
 
 	baseName := fmt.Sprintf("gssh-%s.html", time.Now().Format("2006-01-02_15-04-05"))
@@ -592,8 +599,9 @@ var htmlTmpl = template.Must(template.New("report").Funcs(template.FuncMap{
   <!-- Summary Cards -->
   <div class="cards">
     <div class="card card-total">
-      <div class="card-label">Total Hosts</div>
-      <div class="card-value">{{.Summary.Total}}</div>
+      <div class="card-label">Hosts</div>
+      <div class="card-value">{{.UniqueHosts}}</div>
+      <div class="card-detail">{{.Summary.Total}} command results</div>
     </div>
     <div class="card card-success">
       <div class="card-label">Success</div>
