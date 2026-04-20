@@ -41,19 +41,6 @@ func TestParseFlags_MissingRequired(t *testing.T) {
 	}
 }
 
-func TestParseFlags_InsecureWithoutConfirm(t *testing.T) {
-	var stderr bytes.Buffer
-	args := []string{"-l", "servers.txt", "-u", "root", "-c", "uptime", "-insecure"}
-
-	_, err := parseFlags(args, &stderr)
-	if err == nil {
-		t.Fatal("expected error for -insecure without -y")
-	}
-	if !strings.Contains(err.Error(), "-insecure requires -y") {
-		t.Errorf("error = %q, want containing '-insecure requires -y'", err.Error())
-	}
-}
-
 func TestParseFlags_InsecureWithConfirm(t *testing.T) {
 	var stderr bytes.Buffer
 	args := []string{"-l", "servers.txt", "-u", "root", "-c", "uptime", "-insecure", "-y"}
@@ -338,16 +325,6 @@ func TestParseTransferFlags_PushSourceNotExist(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "source file") {
 		t.Errorf("error = %q, want containing 'source file'", err.Error())
-	}
-}
-
-func TestParseTransferFlags_InsecureWithoutConfirm(t *testing.T) {
-	var stderr bytes.Buffer
-	args := []string{"-l", "servers.txt", "-u", "root", "-s", "/tmp/f", "-d", "/tmp/", "-insecure"}
-
-	_, err := parseTransferFlags(args, &stderr, "pull")
-	if err == nil {
-		t.Fatal("expected error for -insecure without -y")
 	}
 }
 

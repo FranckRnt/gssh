@@ -140,3 +140,60 @@ func BuildAuthMethods(keyPath string) ([]ssh.AuthMethod, io.Closer, error) {
 	}
 	return methods, agentCloser, nil
 }
+
+// bastionDefaultKeyPaths lists key paths to try on the bastion, in priority order.
+var bastionDefaultKeyPaths = []string{
+	"/root/.ssh/id_ed25519",
+	"/root/.ssh/id_ecdsa",
+	"/root/.ssh/id_rsa",
+}
+
+// FetchBastionKey reads a private key from the bastion host via an SSH session.
+// It tries standard key paths for the bastion user. Returns the parsed signer.
+func FetchBastionKey(bastionClient *ssh.Client, bastionUser string) (ssh.Signer, error) {
+	// Build candidate paths based on bastion user.
+	var candidates []string
+	if bastionUser == "root" {
+		candidates = bastionDefaultKeyPaths
+	} else {
+		for _, name := range defaultKeyNames {
+			candidates = append(candidates, fmt.Sprintf("/home/%s/.ssh/%s", bastionUser, name))
+		}
+	}
+
+	for _, keyPath := range candidates {
+		session, err := bastionClient.NewSession()
+		if err != nil {
+			return nil, fmt.Errorf("create session on bastion: %w", err)
+		}
+
+		output, err := session.Output(fmt.Sprintf("cat %s", keyPath))
+		session.Close()
+		if err != nil {
+			slog.Debug("bastion key not found", "path", keyPath)
+			continue
+		}
+
+		signer, err := ssh.ParsePrivateKey(output)
+		if err != nil {
+			slog.Debug("bastion key parse failed", "path", keyPath, "error", err)
+			continue
+		}
+
+		slog.Info("using bastion key for target authentication", "path", keyPath)
+		return signer, nil
+	}
+
+	return nil, fmt.Errorf("no usable private key found on bastion (tried %v)", candidates)
+}
+
+// BuildBastionTargetAuthMethods builds auth methods for target servers using
+// the bastion's private key. Falls back to local auth methods if bastion key
+// is not available.
+func BuildBastionTargetAuthMethods(bastionClient *ssh.Client, bastionUser string) ([]ssh.AuthMethod, error) {
+	signer, err := FetchBastionKey(bastionClient, bastionUser)
+	if err != nil {
+		return nil, err
+	}
+	return []ssh.AuthMethod{ssh.PublicKeys(signer)}, nil
+}

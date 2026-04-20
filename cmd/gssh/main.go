@@ -108,7 +108,7 @@ func parseFlags(args []string, stderr io.Writer) (config, error) {
 	fs.StringVar(&cfg.keyPath, "k", "", "Path to SSH private key (default: auto-detect)")
 	fs.StringVar(&cfg.knownHostsFile, "known-hosts", "", "Path to known_hosts file (default: ~/.ssh/known_hosts)")
 	fs.BoolVar(&cfg.insecure, "insecure", false, "Disable host key verification (NOT recommended)")
-	fs.BoolVar(&cfg.confirm, "y", false, "Confirm dangerous operations (required with -insecure)")
+	fs.BoolVar(&cfg.confirm, "y", false, "Confirm dangerous operations")
 	fs.StringVar(&cfg.port, "p", "22", "Default SSH port")
 	fs.DurationVar(&cfg.timeout, "t", 30*time.Second, "Command timeout per server")
 	fs.IntVar(&cfg.maxWorkers, "w", 100, "Maximum concurrent SSH connections")
@@ -158,8 +158,8 @@ Examples:
   gssh -l servers.txt -u deploy -c "systemctl status nginx" \
        -k ~/.ssh/deploy_key -p 2222 -t 60s -w 50
 
-  # Skip host key verification (dangerous, requires -y)
-  gssh -l servers.txt -u root -c "uptime" -insecure -y
+  # Skip host key verification (dangerous)
+  gssh -l servers.txt -u root -c "uptime" -insecure
 
 Options:
 `)
@@ -200,10 +200,6 @@ Options:
 		return config{}, fmt.Errorf("missing required flags")
 	}
 
-	if cfg.insecure && !cfg.confirm {
-		return config{}, fmt.Errorf("-insecure requires -y to confirm you understand the risk")
-	}
-
 	if cfg.outputFormat != "text" && cfg.outputFormat != "json" {
 		return config{}, fmt.Errorf("invalid output format %q: must be 'text' or 'json'", cfg.outputFormat)
 	}
@@ -233,7 +229,7 @@ func parseTransferFlags(args []string, stderr io.Writer, direction string) (tran
 	fs.StringVar(&cfg.keyPath, "k", "", "Path to SSH private key (default: auto-detect)")
 	fs.StringVar(&cfg.knownHostsFile, "known-hosts", "", "Path to known_hosts file (default: ~/.ssh/known_hosts)")
 	fs.BoolVar(&cfg.insecure, "insecure", false, "Disable host key verification (NOT recommended)")
-	fs.BoolVar(&cfg.confirm, "y", false, "Confirm dangerous operations (required with -insecure)")
+	fs.BoolVar(&cfg.confirm, "y", false, "Confirm dangerous operations")
 	fs.StringVar(&cfg.port, "p", "22", "Default SSH port")
 	fs.IntVar(&cfg.maxWorkers, "w", 100, "Maximum concurrent SSH connections")
 	fs.BoolVar(&cfg.verbose, "v", false, "Verbose output")
@@ -301,10 +297,6 @@ Options:
 	if cfg.serversFile == "" || cfg.user == "" || cfg.source == "" || cfg.dest == "" {
 		fs.Usage()
 		return transferConfig{}, fmt.Errorf("missing required flags: -l, -u, -s, -d are all required")
-	}
-
-	if cfg.insecure && !cfg.confirm {
-		return transferConfig{}, fmt.Errorf("-insecure requires -y to confirm you understand the risk")
 	}
 
 	if cfg.outputFormat != "text" && cfg.outputFormat != "json" {
@@ -634,6 +626,20 @@ func runCommand(args []string, stderr io.Writer) int {
 			return 1
 		}
 		defer bastionClient.Close()
+
+		// Fetch the bastion's private key and use it for target authentication.
+		bastionUser, _, _, _ := internalssh.ParseBastionSpec(cfg.bastionSpec, cfg.port)
+		targetAuth, bastionKeyErr := internalssh.BuildBastionTargetAuthMethods(bastionClient, bastionUser)
+		if bastionKeyErr != nil {
+			slog.Error("failed to fetch bastion key for targets", "error", bastionKeyErr)
+			return 1
+		}
+		sshConfig = &ssh.ClientConfig{
+			User:            cfg.user,
+			Auth:            targetAuth,
+			HostKeyCallback: hostKeyCallback,
+			Timeout:         5 * time.Second,
+		}
 	}
 
 	// Streaming mode implies verbose (disables compact output and progress bar).
@@ -829,6 +835,20 @@ func runTransfer(args []string, stderr io.Writer, direction string) int {
 			return 1
 		}
 		defer bastionClient.Close()
+
+		// Fetch the bastion's private key and use it for target authentication.
+		bastionUser, _, _, _ := internalssh.ParseBastionSpec(cfg.bastionSpec, cfg.port)
+		targetAuth, bastionKeyErr := internalssh.BuildBastionTargetAuthMethods(bastionClient, bastionUser)
+		if bastionKeyErr != nil {
+			slog.Error("failed to fetch bastion key for targets", "error", bastionKeyErr)
+			return 1
+		}
+		sshConfig = &ssh.ClientConfig{
+			User:            cfg.user,
+			Auth:            targetAuth,
+			HostKeyCallback: hostKeyCallback,
+			Timeout:         5 * time.Second,
+		}
 	}
 
 	// Determine transfer direction.

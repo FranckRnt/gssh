@@ -97,7 +97,7 @@ gssh pull -l servers.txt -u root -s /var/log/app.log -d ./logs/ \
      -J admin@bastion.example.com
 ```
 
-The bastion uses the same authentication methods (SSH agent, private key) and the same host key verification as target servers.
+The bastion uses the same authentication methods (SSH agent, private key) for the initial connection. For target servers, gssh automatically fetches the bastion's private key and uses it for authentication — no need to have your local key authorized on targets.
 
 ### Sudo
 
@@ -232,7 +232,6 @@ gssh -l https://inventory.example.com/servers -u root -c "uptime" -g prod
 | `-o <format>` | Output format: `text` or `json` | `text` |
 | `-known-hosts <path>` | known_hosts file | `~/.ssh/known_hosts` |
 | `-insecure` | Disable host key verification | `false` |
-| `-y` | Confirm dangerous operations (required with `-insecure`) | `false` |
 | `-J <user@host[:port]>` | Bastion/jump host to tunnel connections | — |
 | `-g <tags>` | Filter by tags (comma-separated, intersection) | — |
 | `-S` | Run commands via sudo (prompts password once) | `false` |
@@ -260,7 +259,6 @@ gssh -l https://inventory.example.com/servers -u root -c "uptime" -g prod
 | `-o <format>` | Output format: `text` or `json` | `text` |
 | `-known-hosts <path>` | known_hosts file | `~/.ssh/known_hosts` |
 | `-insecure` | Disable host key verification | `false` |
-| `-y` | Confirm dangerous operations | `false` |
 | `-J <user@host[:port]>` | Bastion/jump host to tunnel connections | — |
 | `-g <tags>` | Filter by tags (comma-separated, intersection) | — |
 | `-L <path>` | Directory for JSON log files | `~/.gssh/logs/` |
@@ -461,7 +459,7 @@ If the key is protected by a passphrase, gssh prompts for it interactively.
 
 ## Log file
 
-After each execution, gssh writes a JSON file `gssh-YYYY-MM-DD_HH-MM-SS.log` to the log directory. By default, this directory is `~/.gssh/logs/`. It can be changed via the `-L` flag or the `log_dir` key in `~/.gssh.yaml`. The directory is created automatically if it does not exist.
+After each execution, gssh writes a JSON file `gssh-YYYY-MM-DD_HH-MM-SS.log` to the log directory. By default, this directory is `~/.gssh/logs/`. It can be changed via the `-L` flag or the `log_dir` key in `~/.gssh/config.yaml`. The directory is created automatically if it does not exist.
 
 ## Exit codes
 
