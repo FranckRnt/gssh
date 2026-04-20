@@ -63,9 +63,32 @@ func RunCommandWithSudo(ctx context.Context, client *ssh.Client, command string,
 }
 
 func runSSHCommand(ctx context.Context, client *ssh.Client, command string, timeout time.Duration, stdinData, hostname string, streamCB StreamCallback) (stdout, stderr string, exitCode int, err error) {
-	session, err := client.NewSession()
-	if err != nil {
-		return "", "", 1, fmt.Errorf("create session: %w", err)
+	// Create a deadline that covers the entire operation: session creation,
+	// command start, and command execution. This prevents hanging when the
+	// remote server is overloaded (100% CPU) and cannot allocate a session
+	// or start a process in time.
+	cmdCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	type sessionResult struct {
+		session *ssh.Session
+		err     error
+	}
+	sessCh := make(chan sessionResult, 1)
+	go func() {
+		s, e := client.NewSession()
+		sessCh <- sessionResult{s, e}
+	}()
+
+	var session *ssh.Session
+	select {
+	case res := <-sessCh:
+		if res.err != nil {
+			return "", "", 1, fmt.Errorf("create session: %w", res.err)
+		}
+		session = res.session
+	case <-cmdCtx.Done():
+		return "", "", 1, fmt.Errorf("timed out creating session after %v", timeout)
 	}
 	defer session.Close()
 
@@ -86,17 +109,24 @@ func runSSHCommand(ctx context.Context, client *ssh.Client, command string, time
 		}()
 	}
 
-	done := make(chan error, 1)
-	if err := session.Start(command); err != nil {
-		return "", "", 1, fmt.Errorf("start command: %w", err)
+	startCh := make(chan error, 1)
+	go func() {
+		startCh <- session.Start(command)
+	}()
+
+	select {
+	case startErr := <-startCh:
+		if startErr != nil {
+			return "", "", 1, fmt.Errorf("start command: %w", startErr)
+		}
+	case <-cmdCtx.Done():
+		return "", "", 1, fmt.Errorf("timed out starting command after %v", timeout)
 	}
 
+	done := make(chan error, 1)
 	go func() {
 		done <- session.Wait()
 	}()
-
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
 
 	select {
 	case cmdErr := <-done:
@@ -110,15 +140,10 @@ func runSSHCommand(ctx context.Context, client *ssh.Client, command string, time
 		}
 		return stdoutBuf.String(), stderrBuf.String(), 0, nil
 
-	case <-timer.C:
+	case <-cmdCtx.Done():
 		stdoutBuf.Flush()
 		stderrBuf.Flush()
 		return "", "", 1, fmt.Errorf("command timed out after %v", timeout)
-
-	case <-ctx.Done():
-		stdoutBuf.Flush()
-		stderrBuf.Flush()
-		return "", "", 1, fmt.Errorf("context cancelled: %w", ctx.Err())
 	}
 }
 
