@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -34,7 +35,42 @@ func BuildHostKeyCallback(knownHostsPath string, insecure bool) (ssh.HostKeyCall
 	if err != nil {
 		return nil, fmt.Errorf("load known_hosts %s: %w", knownHostsPath, err)
 	}
-	return callback, nil
+
+	// Wrap the callback to implement TOFU (Trust On First Use) behavior,
+	// equivalent to OpenSSH's StrictHostKeyChecking=accept-new.
+	// If a host key is unknown, it is automatically added to known_hosts.
+	// If the key has CHANGED (potential MITM), the error is still returned.
+	wrappedCallback := func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		err := callback(hostname, remote, key)
+		if err == nil {
+			return nil
+		}
+
+		// Only auto-accept truly unknown hosts, not changed keys.
+		var keyErr *knownhosts.KeyError
+		if !errors.As(err, &keyErr) {
+			return err
+		}
+		// If Want is non-empty, it means the host exists but with a different key — reject.
+		if len(keyErr.Want) > 0 {
+			return err
+		}
+
+		// Unknown host: append the key to known_hosts (TOFU).
+		slog.Info("adding new host key to known_hosts", "host", hostname, "type", key.Type())
+		f, ferr := os.OpenFile(knownHostsPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if ferr != nil {
+			return fmt.Errorf("open known_hosts for writing: %w", ferr)
+		}
+		defer f.Close()
+
+		line := knownhosts.Line([]string{knownhosts.Normalize(hostname)}, key)
+		if _, werr := fmt.Fprintln(f, line); werr != nil {
+			return fmt.Errorf("write to known_hosts: %w", werr)
+		}
+		return nil
+	}
+	return wrappedCallback, nil
 }
 
 // ParseHostPort extracts host and port from a server entry.
