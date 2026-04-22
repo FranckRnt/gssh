@@ -10,5 +10,9 @@ list_servers.txt
 commands.txt
 test*.txt
 
+# IDE
+.vscode/
+.idea/
+
 # OS
 .DS_Store
