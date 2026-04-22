@@ -185,29 +185,70 @@ func runSSHCommand(ctx context.Context, client *ssh.Client, command string, time
 
 // DialSSH establishes an SSH connection to the target, optionally through a bastion host.
 // If bastionClient is non-nil, the connection is tunneled through it.
+// The connection attempt respects context cancellation and deadlines.
 // The caller must close the returned client.
 func DialSSH(ctx context.Context, bastionClient *ssh.Client, addr string, config *ssh.ClientConfig) (*ssh.Client, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
 
+	// Use the ClientConfig.Timeout as a hard deadline for the entire
+	// connection phase (TCP dial + SSH handshake + authentication).
+	// This prevents hanging on banner exchange or auth negotiation.
+	dialCtx := ctx
+	if config.Timeout > 0 {
+		var cancel context.CancelFunc
+		dialCtx, cancel = context.WithTimeout(ctx, config.Timeout)
+		defer cancel()
+	}
+
+	type dialResult struct {
+		client *ssh.Client
+		err    error
+	}
+	ch := make(chan dialResult, 1)
+
 	if bastionClient == nil {
-		return ssh.Dial("tcp", addr, config)
+		// Direct connection with context-aware TCP dial.
+		go func() {
+			d := net.Dialer{}
+			conn, err := d.DialContext(dialCtx, "tcp", addr)
+			if err != nil {
+				ch <- dialResult{nil, err}
+				return
+			}
+			ncc, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
+			if err != nil {
+				conn.Close()
+				ch <- dialResult{nil, fmt.Errorf("ssh handshake to %s: %w", addr, err)}
+				return
+			}
+			ch <- dialResult{ssh.NewClient(ncc, chans, reqs), nil}
+		}()
+	} else {
+		// Dial through the bastion.
+		go func() {
+			conn, err := bastionClient.Dial("tcp", addr)
+			if err != nil {
+				ch <- dialResult{nil, fmt.Errorf("bastion tunnel to %s: %w", addr, err)}
+				return
+			}
+			ncc, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
+			if err != nil {
+				conn.Close()
+				ch <- dialResult{nil, fmt.Errorf("ssh handshake via bastion to %s: %w", addr, err)}
+				return
+			}
+			ch <- dialResult{ssh.NewClient(ncc, chans, reqs), nil}
+		}()
 	}
 
-	// Dial through the bastion.
-	conn, err := bastionClient.Dial("tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("bastion tunnel to %s: %w", addr, err)
+	select {
+	case res := <-ch:
+		return res.client, res.err
+	case <-dialCtx.Done():
+		return nil, fmt.Errorf("connection to %s timed out (dial+handshake+auth exceeded %v)", addr, config.Timeout)
 	}
-
-	ncc, chans, reqs, err := ssh.NewClientConn(conn, addr, config)
-	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("ssh handshake via bastion to %s: %w", addr, err)
-	}
-
-	return ssh.NewClient(ncc, chans, reqs), nil
 }
 
 // DialBastion establishes a connection to the bastion/jump host.
